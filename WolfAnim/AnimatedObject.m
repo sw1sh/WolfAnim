@@ -2,6 +2,7 @@ Package["WolfAnim`"]
 
 PackageExport["AnimatedObject"]
 
+PackageScope["$AnimatedObjectDefaultDirective"]
 
 
 Options[AnimatedObject] = {"GraphicsOptions" -> Sequence[]};
@@ -106,6 +107,15 @@ obj_AnimatedObject["Dimension"] :=  Max[RegionDimension /@ obj["RegionPrimitives
 obj_AnimatedObject["Center"] := Mean /@ obj["Bounds"] // Chop
 
 obj_AnimatedObject["Bounds"] := RegionBounds @ Region @ obj["Region"] // Chop
+
+obj_AnimatedObject["Corners"] := Module[{xmin, xmax, ymin, ymax},
+    {{xmin, xmax}, {ymin, ymax}} = obj["Bounds"];
+    <|{-1, -1} -> {xmin, ymin}, {1, -1} -> {xmax, ymin}, {1, 1} -> {xmax, ymax}, {-1, 1} -> {xmin, ymax}|>
+]
+
+obj_AnimatedObject["Width"] := ReverseApplied[Subtract] @@ obj["Bounds"][[1]]
+
+obj_AnimatedObject["Height"] := ReverseApplied[Subtract] @@ obj["Bounds"][[2]]
 
 
 AnimatedObject /: MakeBoxes[obj : AnimatedObject[data_ ? animatedObjectDataQ], form_] := Module[{
