@@ -4,6 +4,8 @@ PackageExport["AnimationEffect"]
 
 
 
+Options[AnimationEffect] = {"Duration" -> 1}
+
 $AnimationEffectProperties = {"Duration", "Function"};
 
 
@@ -11,7 +13,7 @@ animationEffectDataQ[data_] :=
     AllTrue[$AnimationEffectProperties, KeyExistsQ[data, #] &] &&
     NumericQ[data["Duration"]]
 
-AnimationEffect[f_Function, duration_ : 1] := AnimationEffect[<|"Function" -> f, "Duration" -> duration|>]
+AnimationEffect[f_Function, OptionsPattern[]] := AnimationEffect[<|"Function" -> f, "Duration" -> OptionValue["Duration"]|>]
 
 AnimationEffect[data_]["Function"] := data["Function"]
 
@@ -53,26 +55,59 @@ creationEffect[duration_, opts : OptionsPattern[]] := Module[{
 ]
 
 
-AnimationEffect["Scale", factor_, duration_ : 1] := AnimationEffect[
-    Function @ With[{scale = If[ListQ @ factor, factor, Table[factor, #Object["EmbeddingDimension"]]], t = #t},
-        #Object["TransformPrimitives", ScalingTransform[(1 + (If[# > 0, t, duration - t] / duration) (Abs[#] - 1)) & /@ scale]]
+AnimationEffect["Scale", factor_, Optional[p : Except[OptionsPattern[]], Automatic], opts : OptionsPattern[]] := With[{
+    duration = OptionValue[AnimationEffect, {opts}, "Duration"]
+},
+    AnimationEffect[
+        Function @ With[{scale = If[ListQ @ factor, factor, Table[factor, #Object["EmbeddingDimension"]]], t = #t},
+            #Object["TransformPrimitives", ScalingTransform[(1 + (If[# > 0, t, duration - t] / duration) (Abs[#] - 1)) & /@ scale, p /. Automatic -> #Object["Center"]]]
+        ],
+    opts
+    ]
+]
+
+AnimationEffect["Rotate", angle_, Optional[p : Except[OptionsPattern[]], Automatic], opts : OptionsPattern[]] := With[{
+    duration = OptionValue[AnimationEffect, {opts}, "Duration"]
+},
+    AnimationEffect[#Object["TransformPrimitives",
+        RotationTransform[#t / duration angle, p /. Automatic -> #Object["Center"]]] &,
+        opts
+    ]
+]
+
+AnimationEffect["Translate", v_, opts : OptionsPattern[]] := With[{
+    duration = OptionValue[AnimationEffect, {opts}, "Duration"]
+},
+    AnimationEffect[#Object["TransformPrimitives",
+        TranslationTransform[#t / duration (v /. {Left -> {-1, 0}, Right -> {1, 0}, Down -> {0, -1}, Up -> {0, 1}})]] &,
+        opts
+    ]
+]
+
+AnimationEffect["Stretch", width_, height_ : Automatic, opts : OptionsPattern[]] := Enclose @ AnimationEffect[
+    Function @ Module[{w, h},
+        If[ width =!= Automatic,
+            w = width / #Object["Width"];
+            h = (height /. Automatic -> w #Object["Height"]) / #Object["Height"],
+            ConfirmAssert[height =!= Automatic];
+            h = height / #Object["Height"];
+            w = (width /. Automatic -> h #Object["Width"]) / #Object["Width"]
+        ];
+        AnimationEffect["Scale", {w, h}, opts]["Function"][#]
     ],
-    duration
+    opts
 ]
 
-AnimationEffect["Rotate", angle_, duration_ : 1] := AnimationEffect[#Object["TransformPrimitives",
-    RotationTransform[#t angle, #Object["Center"]]] &,
-    duration
+AnimationEffect["Creation", opts : OptionsPattern[Join[Options[AnimationEffect], Options[creationEffect]]]] :=
+    creationEffect[OptionValue["Duration"], Sequence @@ FilterRules[opts, Options[creationEffect]]]
+
+AnimationEffect["Wait", opts : OptionsPattern[]] := AnimationEffect[#Object &, opts]
+
+
+AnimationEffect[effects : {__AnimationEffect}] := AnimationEffect[
+    Fold[<|"Object" -> #2["Function"][#1], "t" -> #1["t"], "T" -> #1["T"]|> &, #, effects]["Object"] &,
+    "Duration" -> Max[#["Duration"] & /@ effects]
 ]
-
-AnimationEffect["Translate", v_, duration_ : 1] := AnimationEffect[#Object["TransformPrimitives",
-    TranslationTransform[#t v /. {Left -> {-1, 0}, Right -> {1, 0}, Down -> {0, -1}, Up -> {0, 1}}]] &,
-    duration
-]
-
-AnimationEffect["Creation", Optional[duration : Except[OptionsPattern[]], 1], opts : OptionsPattern[creationEffect]] := creationEffect[duration, opts]
-
-AnimationEffect["Wait", duration_ : 1] := AnimationEffect[#Object &, duration]
 
 
 

@@ -39,7 +39,7 @@ AnimatedObject[s_String, dir_ : $AnimatedObjectDefaultDirective, opts : OptionsP
         curve_JoinedCurve :> GeometricFunctions`DecodeJoinedCurve[curve]
     },
         dir, opts
-    ]
+    ]["Apply", "Stretch", Automatic, 1]["Centralize"]
 
 AnimatedObject[g_Graphics, dir_ : Nothing, opts : OptionsPattern[]] :=
     AnimatedObject[Cases[g, _ ? graphicsPrimitiveQ, {1, 2}], Append[Cases[g, _ ? graphicsDirectiveQ, {1, 2}], dir], opts]
@@ -192,9 +192,9 @@ partialMeshRegion[reg_MeshRegion, start_ : 0, end_ : 1, OptionsPattern[]] /; 0 <
 obj_AnimatedObject["Partial", start_ : 0, end_ : 1, sortBy_ : None] /; 0 <= start <= end <= 1 :=
     If[end - start == 1, obj, obj["SetPrimitives", partialMeshRegion[obj["MeshRegion"], start, end, "SortBy" -> sortBy]]]
 
-obj_AnimatedObject["AddEffect", f_AnimationEffect] := obj["MapData", MapAt[Append[f], "Effects"]]
+obj_AnimatedObject["Play", f_AnimationEffect] := obj["MapData", MapAt[Append[f], "Effects"]]
 
-obj_AnimatedObject["Play", name_String, args___] := obj["AddEffect", AnimationEffect[name, args]]
+obj_AnimatedObject["Play", name_String, args___] := obj["Play", AnimationEffect[name, args]]
 
 obj_AnimatedObject["Apply", name_String, args___] := With[{eff = AnimationEffect[name, args]},
     eff["Function"][<|"Object" -> obj, "t" -> eff["Duration"], "T" -> obj["Duration"] + eff["Duration"]|>]
