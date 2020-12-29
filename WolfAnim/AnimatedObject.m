@@ -2,6 +2,8 @@ Package["WolfAnim`"]
 
 PackageExport["AnimatedObject"]
 
+PackageScope["primitiveQ"]
+PackageScope["directiveQ"]
 PackageScope["$AnimatedObjectDefaultDirective"]
 
 
@@ -28,13 +30,15 @@ animatedObjectDataQ[data_] :=
     directiveQ[data["Directive"]]
 
 
-AnimatedObject[g_, dir_ : $AnimatedObjectDefaultDirective, opts : OptionsPattern[]] /; primitiveQ[g] && directiveQ[dir] :=
+AnimatedObject[g_ ? primitiveQ, Optional[dir : _ ? directiveQ, $AnimatedObjectDefaultDirective], opts : OptionsPattern[]] :=
     AnimatedObject[<|"Primitives" -> g, "Directive" -> dir, "Effects" -> {}, "GraphicsOptions" -> {
         OptionValue["GraphicsOptions"], PlotRangePadding -> Scaled[0.1], Background -> Black}|>
     ]
 
-AnimatedObject[s_String, dir_ : $AnimatedObjectDefaultDirective, opts : OptionsPattern[]] /; directiveQ[dir] :=
-    AnimatedObject[ Cases[MaTeX`MaTeX[s], _ ? primitiveQ, {4}] /. {
+AnimatedObject["" | {}, ___] := AnimatedObject[EmptyRegion[2], Transparent]
+
+AnimatedObject[s_String, Optional[dir : _ ? directiveQ, $AnimatedObjectDefaultDirective], opts : OptionsPattern[]] :=
+    AnimatedObject[Cases[MaTeX`MaTeX[s], _ ? primitiveQ, {4}] /. {
         curve_FilledCurve :> GeometricFunctions`DecodeFilledCurve[curve],
         curve_JoinedCurve :> GeometricFunctions`DecodeJoinedCurve[curve]
     },
@@ -59,12 +63,14 @@ obj_AnimatedObject["Graphics"] := {obj["Directive"], obj["Primitives"] /. o_Anim
 obj_AnimatedObject["Duration"] := Total[Cases[obj["Primitives"], o_AnimatedObject :> o["Duration"], All]] + Total[#["Duration"] & /@ obj["Effects"]]
 
 
-(obj : AnimatedObject[data_])["Update", T_ : None] := First @ FoldWhile[{
-        #2["Function"] @ <|
-            "Object" -> #1[[1]],
-            "T" -> T,
-            "t" -> Min[T - #1[[2]], #2["Duration"]]
-        |>,
+obj_AnimatedObject[eff_AnimationEffect, t_ : 0, T_ : 0] := eff["Function"] @ <|
+    "Object" -> obj,
+    "T" -> T,
+    "t" -> If[eff["Reverse"], Max[eff["Duration"] - t, 0], Min[t, eff["Duration"]]]
+|>
+
+(obj : AnimatedObject[data_])["Update", T_ : 0] := First @ FoldWhile[{
+        #1[[1]][#2, T - #1[[2]], T],
         #1[[2]] + #2["Duration"]} &,
     {obj["MapPrimitives", ReplaceAll[o_AnimatedObject :> o["Update", T]]], 0},
     data["Effects"],
